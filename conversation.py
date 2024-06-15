@@ -1,6 +1,6 @@
 import openai
 import re
-
+import difflib
 from dotenv import load_dotenv
 import os
 
@@ -20,7 +20,7 @@ system_prompt = """
 ・システムの発話
 ・システムの発話に対しユーザから事前に聞かれそうな質問とそれに伴う回答
 #作成する際の条件
-・システムの発話1つに付きユーザの質問とその回答を3つ生成すること
+・システムの発話1つに付きユーザの質問とその回答を5つ生成すること
 ・システムの発話は3つ生成すること
 ・生成する発話計画はすべて話し言葉であること
 ・発話計画の構成は作成する発話計画の例の同じ構成にすること
@@ -69,7 +69,7 @@ qa_pairs = qa_pattern.findall(plan)
 dialogue_plan = []
 for i, system_response in enumerate(system_responses):
     qa_list = []
-    for j in range(i*3, (i+3)*3):
+    for j in range(i*5, (i+1)*5): # 5つの質問生成を期待
         if j < len(qa_pairs):
             qa_list.append({
                 "question": qa_pairs[j][0],
@@ -80,14 +80,31 @@ for i, system_response in enumerate(system_responses):
         "qa_pairs": qa_list
     })
 
-# ユーザとの対話
+# ユーザの質問と発話計画内の質問の類似度を計算する関数を定義
+def calculate_similarity(user_question, plan_question):
+    return difflib.SequenceMatcher(None, user_question, plan_question).ratio()
+
+# ユーザの質問に対する適切な回答を見つける関数を定義
+def find_matching_question(user_question, qa_pairs):
+    best_match = None
+    best_similarity = 0
+    for qa_pair in qa_pairs:
+        similarity = calculate_similarity(user_question, qa_pair["question"])
+        if similarity > best_similarity:
+            best_similarity = similarity
+            best_match = qa_pair
+    # 類似度が最も高い質問とその類似度を出力
+    print(f"ユーザ質問: '{user_question}' | 最も類似度が高い発話計画質問: '{best_match['question']}' | 類似度: {best_similarity:.2f}")
+    return best_match, best_similarity
+
+# ユーザとの対話関数
 def user_interaction(dialogue_plan):
     for dialogue in dialogue_plan:
-        # システムの発話
+        # システムの発話を表示
         print(f"\nシステム: {dialogue['system_response']}")
 
         for _ in range(3):
-            # ユーザの質問
+            # ユーザの質問を入力として受け取る
             user_question = input("ユーザ: ")
 
             # 相槌のリスト
@@ -102,16 +119,11 @@ def user_interaction(dialogue_plan):
                 break
 
             # 質問に対する適切な回答を探す
-            answered = False
-            for qa_pair in dialogue["qa_pairs"]:
-                if user_question in qa_pair["question"]:
-                    print(f"システム: {qa_pair['answer']}")
-                    answered = True
-                    break
-
-            if not answered:
-                print("システム: ごめんね、その質問には答えられないよ。")
-                break
+            matched_question, best_similarity = find_matching_question(user_question, dialogue["qa_pairs"])
+            if best_similarity > 0.6:
+                print(f"システム: {matched_question['answer']}")
+            else:
+                print(f"システム: ごめんね、その質問には答えられないよ。最も高い類似度は {best_similarity:.2f} でした。")
 
 # 対話開始
 user_interaction(dialogue_plan)
