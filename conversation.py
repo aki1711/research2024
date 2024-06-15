@@ -94,7 +94,8 @@ def find_matching_question(user_question, qa_pairs):
             best_similarity = similarity
             best_match = qa_pair
     # 類似度が最も高い質問とその類似度を出力
-    print(f"ユーザ質問: '{user_question}' | 最も類似度が高い発話計画質問: '{best_match['question']}' | 類似度: {best_similarity:.2f}")
+    if best_match is not None:
+        print(f"ユーザ質問: '{user_question}' | 最も類似度が高い発話計画質問: '{best_match['question']}' | 類似度: {best_similarity:.2f}")
     return best_match, best_similarity
 
 # ユーザとの対話関数
@@ -123,7 +124,7 @@ def user_interaction(dialogue_plan):
             if best_similarity > 0.6:
                 print(f"システム: {matched_question['answer']}")
             else:
-                print(f"システム: ごめんね、その質問には答えられないよ。最も高い類似度は {best_similarity:.2f} でした。")
+                print(f"システム: ごめんね、その質問には答えられないよ。")
 
 # 対話開始
 user_interaction(dialogue_plan)
