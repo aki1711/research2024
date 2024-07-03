@@ -121,6 +121,22 @@ def find_matching_question(user_question, qa_pairs):
         print(f"ユーザ質問: '{user_question}' | 最も類似度が高い発話計画質問: '{best_match['question']}' | 類似度: {best_similarity:.2f}")
     return best_match, best_similarity
 
+#ユーザの発話が相槌かどうかを判定する関数を定義
+def is_acknowledgement(user_responding):
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "あなたは会話の相槌を判定する役割です。"},
+            {"role": "user", "content": f"以下のテキストが会話の相槌かどうかを判定してください。\n\nユーザの入力: {user_responding}\n\nこの入力は会話の相槌ですか？（はい/いいえ）"}
+        ],
+        max_tokens=5,
+        n=1,
+        stop=None,
+        temperature=0
+    )
+    return "はい" in response.choices[0].message['content'].strip()
+
+
 # ユーザとの対話関数
 def user_interaction(dialogue_plan):
     for dialogue in dialogue_plan:
@@ -129,18 +145,24 @@ def user_interaction(dialogue_plan):
 
         for _ in range(3):
             # ユーザの質問を入力として受け取る
-            user_question = input("ユーザ: ")
+            # user_question = input("ユーザ: ")
+            user_input = input("ユーザ: ")
+            user_question = user_input
+            user_responding = user_input
+
 
             # 相槌のリスト
-            acknowledgements = ["へえー。", "そうなんだ。", "ふーん。", "なるほど。"]
-
+            # acknowledgements = ["へえー。", "そうなんだ。", "ふーん。", "なるほど。"]
+            
             # ユーザが相槌を打った場合、次のシステム発話に移る
-            if user_question.strip() in acknowledgements:
+            # if user_question.strip() in acknowledgements:
+            if is_acknowledgement(user_responding):
                 break
 
             # 質問がない場合、次のシステム発話に移る
-            if not user_question.strip():
-                break
+            # if not user_question.strip():
+            # if not is_acknowledgement(user_responding):
+            #    break
 
             # 質問に対する適切な回答を探す
             matched_question, best_similarity = find_matching_question(user_question, dialogue["qa_pairs"])
