@@ -3,7 +3,8 @@ import re
 import difflib
 from dotenv import load_dotenv
 import os
-
+from sentence_transformers import SentenceTransformer
+import numpy as np
 
 # .env ファイルから環境変数を読み込む
 load_dotenv()
@@ -12,6 +13,8 @@ load_dotenv()
 # APIキーを環境変数から取得する
 openai.api_key = os.getenv("API_KEY")
 
+# Sentence-BERTモデルをロード
+model = SentenceTransformer('all-MiniLM-L6-v2')
 
 # ユーザからの入力を受け取る
 user_input = input("ニュース記事を入力してください：")
@@ -120,25 +123,25 @@ for i, system_response in enumerate(system_responses):
     })
 
 
-# ユーザの質問と発話計画内の質問の類似度を計算する関数を定義
-def calculate_similarity(user_question, plan_question):
-    return difflib.SequenceMatcher(None, user_question, plan_question).ratio()
+# ユーザの質問に対する適切な回答を選ぶための関数
+def get_best_matching_answer(user_question, dialogue_plan):
+    # ユーザの質問の埋め込みを計算
+    user_embedding = model.encode([user_question])[0]
 
-
-# ユーザの質問に対する適切な回答を見つける関数を定義
-def find_matching_question(user_question, qa_pairs):
     best_match = None
-    best_similarity = 0
-    for qa_pair in qa_pairs:
-        similarity = calculate_similarity(user_question, qa_pair["question"])
-        if similarity > best_similarity:
-            best_similarity = similarity
-            best_match = qa_pair
-    # 類似度が最も高い質問とその類似度を出力
-    if best_match is not None:
-        print(f"ユーザ質問: '{user_question}' | 最も類似度が高い発話計画質問: '{best_match['question']}' | 類似度: {best_similarity:.2f}")
-    return best_match, best_similarity
+    highest_similarity = -1
 
+    for dialogue in dialogue_plan:
+        for qa_pair in dialogue["qa_pairs"]:
+            question_embedding = model.encode([qa_pair["question"]])[0]
+            # コサイン類似度を計算
+            similarity = np.dot(user_embedding, question_embedding) / (np.linalg.norm(user_embedding) * np.linalg.norm(question_embedding))
+            
+            if similarity > highest_similarity:
+                highest_similarity = similarity
+                best_match = qa_pair
+
+    return best_match
 
 #ユーザの発話が相槌かどうかを判定する関数を定義
 def is_acknowledgement(user_responding):
@@ -173,8 +176,6 @@ def user_interaction(dialogue_plan):
             user_responding = user_input
 
 
-
-
             # 相槌のリスト
             # acknowledgements = ["へえー。", "そうなんだ。", "ふーん。", "なるほど。"]
            
@@ -183,20 +184,14 @@ def user_interaction(dialogue_plan):
             if is_acknowledgement(user_responding):
                 break
 
+            # ユーザ質問に基づく最適な回答を取得
+            best_match = get_best_matching_answer(user_input, dialogue_plan)
 
-            # 質問がない場合、次のシステム発話に移る
-            # if not user_question.strip():
-            # if not is_acknowledgement(user_responding):
-            #    break
-
-
-            # 質問に対する適切な回答を探す
-            matched_question, best_similarity = find_matching_question(user_question, dialogue["qa_pairs"])
-            if best_similarity > 0.6:
-                print(f"システム: {matched_question['answer']}")
+            # 最適な質問とその回答を表示
+            if best_match:
+                print(f"システム: {best_match['answer']}")
             else:
-                print(f"システム: ごめんね、その質問には答えられないよ。")
-
+                print("システム: すみません、適切な回答が見つかりませんでした。")
 
 # 対話開始
 user_interaction(dialogue_plan)
