@@ -175,12 +175,6 @@ def user_interaction(dialogue_plan):
             user_question = user_input
             user_responding = user_input
 
-
-            # 相槌のリスト
-            # acknowledgements = ["へえー。", "そうなんだ。", "ふーん。", "なるほど。"]
-           
-            # ユーザが相槌を打った場合、次のシステム発話に移る
-            # if user_question.strip() in acknowledgements:
             if is_acknowledgement(user_responding):
                 break
 
